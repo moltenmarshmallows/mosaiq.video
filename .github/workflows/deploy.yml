@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Serialize production deploys — never interrupt an in-progress run; GitHub
+# keeps only the newest queued run, and the tip check below re-verifies it.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Push runs only deploy the branch tip — a superseded run skips instead
+      # of publishing stale content. workflow_dispatch is exempt so an older
+      # main-history commit stays deployable for rollback.
+      - name: Check push run is still branch tip
+        id: tip
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin main
+          [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ] \
+            && echo "current=true" >> "$GITHUB_OUTPUT" \
+            || { echo "current=false" >> "$GITHUB_OUTPUT"; echo "::notice::Superseded by a newer main commit — skipping deploy"; }
+
+      # Manual runs may only deploy main history — never an unmerged branch ref.
+      - name: Gate dispatch to main history
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD || {
+            echo "::error::${GITHUB_REF_NAME} (${GITHUB_SHA}) is not on main history — refusing to deploy"; exit 1;
+          }
+
+      - uses: cloudflare/wrangler-action@v3
+        if: steps.tip.outputs.current != 'false'
+        with:
+          # Repo secret: Workers Scripts:Edit on account 5b594173… — least privilege,
+          # no zone permissions needed (custom domains are owned by Terraform).
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
