@@ -1,0 +1,21 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          # Repo secret: Workers Scripts:Edit on account 5b594173… — least privilege,
+          # no zone permissions needed (custom domains are owned by Terraform).
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
