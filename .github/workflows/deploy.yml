@@ -8,10 +8,11 @@ on:
 permissions:
   contents: read
 
-# Serialize production deploys; a newer run supersedes an in-progress one.
+# Serialize production deploys — never interrupt an in-progress run; GitHub
+# keeps only the newest queued run, and the tip check below re-verifies it.
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
