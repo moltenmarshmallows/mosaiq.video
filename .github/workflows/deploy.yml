@@ -43,7 +43,7 @@ jobs:
             echo "::error::${GITHUB_REF_NAME} (${GITHUB_SHA}) is not on main history — refusing to deploy"; exit 1;
           }
 
-      - uses: cloudflare/wrangler-action@v3
+      - uses: cloudflare/wrangler-action@v4
         if: steps.tip.outputs.current != 'false'
         with:
           # Repo secret: Workers Scripts:Edit on account 5b594173… — least privilege,
